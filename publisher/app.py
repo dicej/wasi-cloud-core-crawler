@@ -6,7 +6,7 @@ from crawler import exports
 from crawler.types import Ok
 from crawler.imports import types2 as http, messaging_types as messaging, producer
 from crawler.imports.types2 import MethodPost
-from crawler.imports.messaging_types import Message, FormatSpec
+from crawler.imports.messaging_types import Message, FormatSpec, GuestConfiguration
 from poll_loop import Stream, Sink, PollLoop
 from typing import List
 from urllib import parse
@@ -73,3 +73,11 @@ async def handle_async(request: int, response_out: int):
         sink = Sink(http.outgoing_response_write(response))
         await sink.send(bytes(f"{type(e).__name__}: {str(e)}", "utf-8"))
         sink.close()
+
+# Dummy implementation to satisfy `crawler` world:
+class MessagingGuest(exports.MessagingGuest):
+    def configure(self) -> GuestConfiguration:
+        raise NotImplementedError
+
+    def handler(self, messages: List[Message]):
+        raise NotImplementedError

@@ -13,10 +13,6 @@ from typing import List, Tuple, cast
 from html.parser import HTMLParser
 from urllib import parse
 
-class IncomingHandler2(exports.IncomingHandler2):
-    def handle(self, request: int, response_out: int):
-        raise NotImplementedError
-
 class MessagingGuest(exports.MessagingGuest):
     def configure(self) -> GuestConfiguration:
         return GuestConfiguration(redis_address(), [CHANNEL_NAME], None)
@@ -42,6 +38,7 @@ async def handle_async(messages: List[Message]):
                 urls = get_urls(str(body, "utf-8"))
 
                 # TODO: turn relative URLs into absolute ones
+                # TODO: don't follow links outside the original domain
                 
                 print(f"in {url}, found: {urls}")
             
@@ -105,6 +102,7 @@ async def get(url: str) -> Tuple[str, bytes]:
 
 class Parser(HTMLParser):
     def __init__(self):
+        HTMLParser.__init__(self)
         self.urls = []
                         
     def handle_starttag(self, tag: str, attrs: List[Tuple[str, str | None]]):
@@ -132,3 +130,7 @@ async def outgoing_request_send(request: int) -> int:
             else:
                 raise response
 
+# Dummy implementation to satisfy `crawler` world:
+class IncomingHandler2(exports.IncomingHandler2):
+    def handle(self, request: int, response_out: int):
+        raise NotImplementedError

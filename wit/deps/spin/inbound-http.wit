@@ -1,3 +1,5 @@
+package fermyon:spin
+
 interface inbound-http {
     use http-types.{request, response}
 

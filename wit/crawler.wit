@@ -1,0 +1,9 @@
+package demo:crawler
+
+world crawler {
+  import wasi:messaging/producer
+  import wasi:http/outgoing-handler2
+
+  export wasi:messaging/messaging-guest
+  export wasi:http/incoming-handler2
+}

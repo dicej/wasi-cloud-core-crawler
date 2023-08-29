@@ -1,0 +1,16 @@
+spin_manifest_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "Web crawler demo using wasi-cloud-core (publisher)"
+name = "wasi-cloud-core-crawler-publisher"
+trigger = { type = "http", base = "/" }
+version = "1.0.0"
+
+[[component]]
+id = "app"
+source = "app.wasm"
+[component.trigger]
+route = "/..."
+executor =  { type = "wasi" }
+[component.build]
+command = "componentize-py -d ../wit -w crawler componentize app -p . -p ../common -o app.wasm"
+watch = ["app.py"]

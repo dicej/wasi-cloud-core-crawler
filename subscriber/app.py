@@ -8,6 +8,7 @@ from crawler.types import Ok
 from crawler.imports import types2 as http, messaging_types as messaging, producer, outgoing_handler2 as outgoing_handler
 from crawler.imports.types2 import MethodGet, Scheme, SchemeHttp, SchemeHttps, SchemeOther
 from crawler.imports.messaging_types import GuestConfiguration, Message, FormatSpec
+from crawler.imports import types as kv, readwrite
 from poll_loop import Stream, Sink, PollLoop
 from typing import List, Tuple, cast
 from html.parser import HTMLParser
@@ -33,6 +34,13 @@ async def handle_async(messages: List[Message]):
             mime, body = await get(url)
 
             print(f"got {url}: mime: {mime} body length: {len(body)}")
+            
+            if mime.startswith("image/jpeg"):
+                print(f"found a jpeg from url {url}")
+                bucket = kv.open_bucket("images")
+                outgoing_value = kv.new_outgoing_value()
+                kv.outgoing_value_write_body_sync(outgoing_value, body)
+                readwrite.set(bucket, url, outgoing_value)
 
             if depth + 1 < MAX_DEPTH and mime.startswith("text/html"):
                 urls = get_urls(str(body, "utf-8"))
@@ -42,7 +50,21 @@ async def handle_async(messages: List[Message]):
                 
                 print(f"in {url}, found: {urls}")
             
-                for url in urls:                
+                for url in urls:
+                    bucket = kv.open_bucket("urls")
+                    try:
+                        incoming_value = readwrite.get(bucket, url)
+                        value = kv.incoming_value_consume_sync(incoming_value)
+                        # parse value of bytes to int
+                        value = int(value)
+                        outgoing_value = kv.new_outgoing_value()
+                        kv.outgoing_value_write_body_sync(outgoing_value, bytes(str(value + 1), "utf-8"))
+                        readwrite.set(bucket, url, outgoing_value)
+                    except Exception as e:
+                        outgoing_value = kv.new_outgoing_value()
+                        kv.outgoing_value_write_body_sync(outgoing_value, bytes("1", "utf-8"))
+                        readwrite.set(bucket, url, outgoing_value)
+
                     if client is None:
                         client = messaging.connect(redis_address())
                     

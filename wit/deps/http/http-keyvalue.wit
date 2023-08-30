@@ -1,4 +1,0 @@
-world http-keyvalue {
-    include proxy
-    include keyvalue
-}

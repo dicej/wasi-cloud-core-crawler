@@ -8,7 +8,7 @@ from crawler.types import Ok
 from crawler.imports import types2 as http, messaging_types as messaging, producer, outgoing_handler2 as outgoing_handler
 from crawler.imports.types2 import MethodGet, Scheme, SchemeHttp, SchemeHttps, SchemeOther
 from crawler.imports.messaging_types import GuestConfiguration, Message, FormatSpec
-from crawler.imports import types_keyvalue as kv, readwrite
+from crawler.imports import types as kv, readwrite
 from poll_loop import Stream, Sink, PollLoop
 from typing import List, Tuple, cast
 from html.parser import HTMLParser
@@ -64,7 +64,6 @@ async def handle_async(messages: List[Message]):
                         outgoing_value = kv.new_outgoing_value()
                         kv.outgoing_value_write_body_sync(outgoing_value, bytes("1", "utf-8"))
                         readwrite.set(bucket, url, outgoing_value)
-                        continue
 
                     if client is None:
                         client = messaging.connect(redis_address())

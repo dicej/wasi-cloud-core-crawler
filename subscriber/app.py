@@ -136,6 +136,11 @@ class Parser(HTMLParser):
             for name, value in attrs:
                 if name == "href" and value is not None:
                     absurl = parse.urljoin(self.base_url, value)
+                    parsed_url = parse.urlparse(absurl)
+
+                    if parsed_url.fragment:
+                        continue
+
                     if absurl.startswith(self.base_url):
                         self.urls.append(absurl)
                         

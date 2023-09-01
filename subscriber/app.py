@@ -73,7 +73,7 @@ async def handle_async(messages: List[Message]):
                             client,
                             CHANNEL_NAME,
                             [Message(
-                                bytes(json.dumps({"url": url, "depth": 0}), "utf-8"),
+                                bytes(json.dumps({"url": url, "depth": depth + 1}), "utf-8"),
                                 FormatSpec.RAW,
                                 None
                             )]

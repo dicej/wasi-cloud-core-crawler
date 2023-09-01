@@ -1,6 +1,6 @@
 import os
 
-MAX_DEPTH: int = 2
+MAX_DEPTH: int = 10
 CHANNEL_NAME: str = "crawler"
 
 def redis_address() -> str:

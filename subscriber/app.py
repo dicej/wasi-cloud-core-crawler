@@ -4,7 +4,7 @@ import poll_loop
 
 from common import MAX_DEPTH, CHANNEL_NAME, redis_address
 from crawler import exports
-from crawler.types import Ok
+from crawler.types import Ok, Err
 from crawler.imports import types2 as http, messaging_types as messaging, producer, outgoing_handler2 as outgoing_handler
 from crawler.imports.types2 import MethodGet, Scheme, SchemeHttp, SchemeHttps, SchemeOther
 from crawler.imports.messaging_types import GuestConfiguration, Message, FormatSpec
@@ -43,12 +43,9 @@ async def handle_async(messages: List[Message]):
                 readwrite.set(bucket, url, outgoing_value)
 
             if depth + 1 < MAX_DEPTH and mime.startswith("text/html"):
-                urls = get_urls(str(body, "utf-8"))
-
-                # TODO: turn relative URLs into absolute ones
-                # TODO: don't follow links outside the original domain
+                urls = get_urls(str(body, "utf-8"), 'https://www.fermyon.com')
                 
-                print(f"in {url}, found: {urls}")
+                print(f"{url}: found {len(urls)} urls")
             
                 for url in urls:
                     bucket = kv.open_bucket("urls")
@@ -60,23 +57,27 @@ async def handle_async(messages: List[Message]):
                         outgoing_value = kv.new_outgoing_value()
                         kv.outgoing_value_write_body_sync(outgoing_value, bytes(str(value + 1), "utf-8"))
                         readwrite.set(bucket, url, outgoing_value)
-                    except Exception as e:
+                    except Err as e:
+                        msg = kv.trace(e.value)
+                        print(f"error: {msg}")
+                    except ValueError as e:
+                        # if value is not an int, set it to 1
                         outgoing_value = kv.new_outgoing_value()
                         kv.outgoing_value_write_body_sync(outgoing_value, bytes("1", "utf-8"))
                         readwrite.set(bucket, url, outgoing_value)
 
-                    if client is None:
-                        client = messaging.connect(redis_address())
-                    
-                    producer.send(
-                        client,
-                        CHANNEL_NAME,
-                        [Message(
-                            bytes(json.dumps({"url": url, "depth": 0}), "utf-8"),
-                            FormatSpec.RAW,
-                            None
-                        )]
-                    )
+                        if client is None:
+                            client = messaging.connect(redis_address())
+                        
+                        producer.send(
+                            client,
+                            CHANNEL_NAME,
+                            [Message(
+                                bytes(json.dumps({"url": url, "depth": depth + 1}), "utf-8"),
+                                FormatSpec.RAW,
+                                None
+                            )]
+                        )
 
 async def get(url: str) -> Tuple[str, bytes]:
     url_parsed = parse.urlparse(url)
@@ -100,6 +101,8 @@ async def get(url: str) -> Tuple[str, bytes]:
     response = await outgoing_request_send(request)
 
     status = http.incoming_response_status(response)
+    if status == 404:
+        return "text/plain", b"not found"
     if status < 200 or status > 299:
         raise Exception(f"unexpected status for {url}: {status}")
 
@@ -123,20 +126,23 @@ async def get(url: str) -> Tuple[str, bytes]:
     return content_types[0], bytes(body)
 
 class Parser(HTMLParser):
-    def __init__(self):
+    def __init__(self, base_url: str = None):
         HTMLParser.__init__(self)
-        self.urls = []
+        self.urls: List[str] = []
+        self.base_url = base_url
                         
     def handle_starttag(self, tag: str, attrs: List[Tuple[str, str | None]]):
         if tag == "a":
             for name, value in attrs:
                 if name == "href" and value is not None:
-                    self.urls.append(value)
+                    absurl = parse.urljoin(self.base_url, value)
+                    if absurl.startswith(self.base_url):
+                        self.urls.append(absurl)
                         
-def get_urls(html: str) -> List[str]:
-    parser = Parser()
+def get_urls(html: str, base_url: str = None) -> List[str]:
+    parser = Parser(base_url)
     parser.feed(html)
-    return parser.urls
+    return list(set(parser.urls))
 
 async def outgoing_request_send(request: int) -> int:
     future = outgoing_handler.handle(request, None)
